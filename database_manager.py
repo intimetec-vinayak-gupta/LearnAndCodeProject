@@ -32,7 +32,7 @@ class DatabaseManager:
 
     def get_user_role(self, username, password):
         query = """
-            SELECT u.Name AS UserName, r.Name AS RoleName 
+            SELECT u.Id, u.Name AS UserName, r.Name AS RoleName 
             FROM Users u 
             JOIN Roles r ON u.RoleId = r.Id  
             JOIN UsersCredentials uc ON u.Id = uc.UserId 
@@ -53,5 +53,10 @@ class DatabaseManager:
         self.execute_query(query, (availability_status, item_id))
 
     def view_food_items(self):
-        query = "SELECT FoodItems.Id AS Id, FoodItems.Name AS Name, Price, IsAvailable, MealCategory.Name AS MealType FROM FoodItems JOIN MealCategory ON FoodItems.Category =  MealCategory.Id"
+        query = "SELECT * FROM FoodItems"
         return self.execute_query(query)
+
+    def add_rating_and_feedback(self, user_id, food_item_id, rating, feedback):
+        query = "INSERT INTO Ratings (UserId, FoodItemId, Rating, Feedback) VALUES (%s, %s, %s, %s);"
+        # Execute the query with the parameters
+        self.execute_query(query, (user_id, food_item_id, rating, feedback))

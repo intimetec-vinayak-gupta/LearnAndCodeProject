@@ -15,30 +15,30 @@ class Server:
         try:
             print("Handling new client")
             user_credentials = client_socket.recv(1024).decode().strip()
-            print(user_credentials)
             username, password = user_credentials.split('|')
-            print(f"Received credentials: {username}, {password}")
             user_data = self.db_manager.get_user_role(username, password)
-            print(f"User data: {user_data}")
 
             if user_data:
-                user = User(username, user_data[0]['RoleName'])
-                client_socket.send(f"Login successful! Your role is {user.role}.\n".encode())
+                user = User(user_data[0]['Id'], username, user_data[0]['RoleName'])
+                client_socket.send(f"Login successful! Your role is {user.role}. Your user ID is {user.user_id}.\n".encode())
                 client_socket.send(f"Available functionalities: {', '.join(user.get_role_functions())}\n".encode())
 
-                if user.role == "Admin":
+                if user.role == 'Admin':
                     while True:
-                        client_socket.send(
-                            "Press the given numbers to perform the actions:\n1. Add Food Item\n2. Delete Food Item\n3. Update Food Item\n4. View Food Items\n5. Exit\n".encode())
+                        client_socket.send("Press the given numbers to perform the actions:\n1. Add Food Item\n2. Delete Food Item\n3. Update Food Item\n4. View Food Items\n5. Exit\n".encode())
                         command = client_socket.recv(1024).decode().strip()
-                        print(f"Received command: {command}")
                         if command == '5':
                             break
                         self.command_handler.handle_command(user, command, client_socket)
-                elif user.role == "Chef":
-                    client_socket.close()
-                elif user.role == "Employee":
-                    client_socket.close()
+                elif user.role == 'Chef':
+                    print("Options for Chef")
+                elif user.role == 'Employee':
+                    while True:
+                        client_socket.send("Press the given numbers to perform the actions:\n1. View Notifications\n2. Give Feedback\n3. View Menu\n4. Exit\n".encode())
+                        command = client_socket.recv(1024).decode().strip()
+                        if command == '4':
+                            break
+                        self.command_handler.handle_command(user, command, client_socket)
             else:
                 client_socket.send("Invalid credentials.\n".encode())
         except socket.error as e:
@@ -62,5 +62,5 @@ class Server:
 if __name__ == "__main__":
     db_manager = DatabaseManager()
     command_handler = CommandHandler(db_manager)
-    server = Server("0.0.0.0", 8889, db_manager, command_handler)
+    server = Server("0.0.0.0", 7777, db_manager, command_handler)
     server.start()
