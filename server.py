@@ -31,12 +31,17 @@ class Server:
                             break
                         self.command_handler.handle_command(user, command, client_socket)
                 elif user.role == 'Chef':
-                    print("Options for Chef")
+                    while True:
+                        client_socket.send("Press the given numbers to perform the actions:\n1. Finalize Menu\n2. View Feedback\n3. View Menu\n4. View Recommendations\n5. Exit\n".encode())
+                        command = client_socket.recv(1024).decode().strip()
+                        if command == '5':
+                            break
+                        self.command_handler.handle_command(user, command, client_socket)
                 elif user.role == 'Employee':
                     while True:
-                        client_socket.send("Press the given numbers to perform the actions:\n1. View Notifications\n2. Give Feedback\n3. View Menu\n4. Exit\n".encode())
+                        client_socket.send("Press the given numbers to perform the actions:\n1. View Notifications\n2. Give Feedback\n3. View Menu\n4. Choose Food Item for Tomorrow\n5.For EXIT\n".encode())
                         command = client_socket.recv(1024).decode().strip()
-                        if command == '4':
+                        if command == '5':
                             break
                         self.command_handler.handle_command(user, command, client_socket)
             else:
@@ -62,5 +67,5 @@ class Server:
 if __name__ == "__main__":
     db_manager = DatabaseManager()
     command_handler = CommandHandler(db_manager)
-    server = Server("0.0.0.0", 7777, db_manager, command_handler)
+    server = Server("0.0.0.0", 7778, db_manager, command_handler)
     server.start()

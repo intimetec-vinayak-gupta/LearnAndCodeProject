@@ -64,7 +64,6 @@ class Client:
             self.send_command(all_inputs)
 
     def handle_chef_input(self, user_input):
-        # Implement Chef-specific input handling
         if user_input == '1':  # Finalize Menu
             print("Finalizing Menu...")
             # Additional logic to finalize the menu
@@ -74,6 +73,8 @@ class Client:
         elif user_input == '3':  # View Menu
             print("Viewing Menu...")
             # Additional logic to view the menu
+        elif user_input == '4':  # View Recommendations
+            print("Viewing Recommendations...")
 
     def handle_employee_input(self, user_input):
         if user_input == '1':  # View Notifications
@@ -86,8 +87,11 @@ class Client:
             all_inputs = f"{food_item_id}|{rating}|{feedback}"
             self.send_command(all_inputs)
         elif user_input == '3':  # View Menu
-            print("Viewing Menu...")
-            # Additional logic to view the menu
+           print("Viewing Menu...")
+        elif user_input == '4':
+            self.receive_response()  # Show recommended items
+            food_item_id = input("Enter the FoodItemId: ")
+            self.send_command(food_item_id)
 
     def start(self):
         self.connect()
@@ -103,5 +107,5 @@ class Client:
         print("Disconnected from server")
 
 if __name__ == "__main__":
-    client = Client("127.0.0.1", 7777)
+    client = Client("127.0.0.1", 7778)
     client.start()
