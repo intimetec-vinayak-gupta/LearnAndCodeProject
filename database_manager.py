@@ -95,25 +95,44 @@ class DatabaseManager:
         self.execute_query(query)
 
     def fetchRecommendedItems(self):
-        query = "SELECT FoodItemId, FoodItems.Name AS FoodItemName, FoodItemCategory, AvgRating, AvgSentiment FROM RecommendedItemsDaily JOIN FoodItems ON RecommendedItemsDaily.FoodItemId = FoodItems.Id;"
+        query = "SELECT FoodItemId, FoodItems.Name AS FoodItemName, FoodItemCategory, RecommendedItemsDaily.AvgRating, RecommendedItemsDaily.AvgSentiment FROM RecommendedItemsDaily JOIN FoodItems ON RecommendedItemsDaily.FoodItemId = FoodItems.Id;"
         return self.execute_query(query)
+
+    def update_food_items_with_avg_scores(self):
+        query = """
+        UPDATE FoodItems fi
+        JOIN (
+            SELECT 
+                FoodItemId,
+                AVG(Rating) AS AvgRating,
+                AVG(SentimentScore) AS AvgSentiment
+            FROM Ratings
+            GROUP BY FoodItemId
+        ) r ON fi.Id = r.FoodItemId
+        SET 
+            fi.AvgRating = r.AvgRating,
+            fi.AvgSentiment = r.AvgSentiment
+        """
+        self.execute_query(query)
 
     def getRecommendedItems(self):
         self.truncate_recommended_items()
+        self.update_food_items_with_avg_scores()
+
         query = """
                     INSERT INTO RecommendedItemsDaily (FoodItemId, FoodItemCategory, AvgRating, AvgSentiment)
                     SELECT FoodItemId, FoodItemCategory, AvgRating, AvgSentiment 
                     FROM (
                         SELECT 
-                            FoodItemId,
+                            FoodItems.Id AS FoodItemId,
                             MealCategory.Name AS FoodItemCategory,
-                            AVG(Rating) AS AvgRating, 
-                            AVG(SentimentScore) AS AvgSentiment, 
-                            RANK() OVER (PARTITION BY MealCategory.Name ORDER BY AVG(Rating) DESC) AS ranks
-                        FROM Ratings 
-                        JOIN FoodItems ON Ratings.FoodItemId = FoodItems.Id
+                            FoodItems.AvgRating AS AvgRating,
+                            FoodItems.AvgSentiment AS AvgSentiment, 
+                            ROW_NUMBER() OVER (PARTITION BY MealCategory.Name 
+                            ORDER BY FoodItems.AvgSentiment DESC, FoodItems.AvgRating DESC) AS ranks
+                        FROM FoodItems
                         JOIN MealCategory ON FoodItems.Category = MealCategory.Id
-                        GROUP BY FoodItemId, MealCategory.Name
+                        GROUP BY FoodItems.Id, MealCategory.Name
                     ) AS result
                     WHERE ranks <= 3;
                 """
@@ -134,6 +153,15 @@ class DatabaseManager:
         """
         result = self.execute_query(query, (user_id, category))
         return len(result) > 0
+
+    def get_food_item_votes(self):
+        query = """
+            SELECT fi.Id AS FoodItemId, COUNT(*) AS Votes
+            FROM UserFoodHistory ufh 
+            JOIN FoodItems fi ON ufh.FoodItemId = fi.Id
+            GROUP BY fi.Id;
+        """
+        return self.execute_query(query)
 
     def get_daily_recommended_items(self):
         query = "SELECT * FROM RecommendedItemsDaily"
@@ -168,3 +196,30 @@ class DatabaseManager:
     def update_last_seen_notification_date(self, user_id):
         query = "UPDATE Users SET LastNotificationSeenDate = NOW() WHERE Id = %s"
         self.execute_query(query, (user_id,))
+
+    def get_discardable_items(self):
+        query = """
+        SELECT Id, AvgRating, AvgSentiment 
+        FROM FoodItems
+        WHERE AvgRating <= 2.0 
+          AND AvgSentiment <= 3.3 
+          AND AvgRating != 0.0 
+          AND AvgSentiment != 0.0
+        """
+        return self.execute_query(query)
+
+    def discard_item(self, food_item_id):
+        query = "INSERT INTO DiscardedItems (FoodItemId) VALUES (%s)"
+        self.execute_query(query, (food_item_id,))
+
+    def delete_food_item(self, food_item_id):
+        query = "DELETE FROM FoodItems WHERE Id = %s"
+        self.execute_query(query, (food_item_id,))
+
+    def view_discarded_items(self):
+        query = "SELECT Id, FoodItemId FROM DiscardedItems"
+        return self.execute_query(query)
+
+    def is_discardable_item_exists(self, food_item_id):
+        query = "SELECT 1 FROM DiscardedItems WHERE FoodItemId = %s"
+        return self.execute_query(query, (food_item_id,))
