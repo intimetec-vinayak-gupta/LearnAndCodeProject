@@ -23,11 +23,9 @@ class Server:
                 client_socket.send(f"Login successful! Your role is {user.role}. Your user ID is {user.user_id}.\n".encode())
 
                 if user.role == 'Admin':
-                    print("role is admin")
                     while True:
                         client_socket.send("Press the given numbers to perform the actions:\n1. Add Food Item\n2. Delete Food Item\n3. Update Food Item\n4. View Food Items\n5. Exit\n".encode())
                         command = client_socket.recv(1024).decode().strip()
-                        #print(command)
                         if command == '5':
                             break
                         self.command_handler.handle_command(user, command, client_socket)

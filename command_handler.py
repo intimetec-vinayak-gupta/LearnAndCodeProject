@@ -7,7 +7,6 @@ class CommandHandler:
 
     def handle_command(self, user, command, client_socket):
         if user.role == "Admin":
-            print("INSIDE Admin")
             self.handle_admin_command(command, client_socket)
         elif user.role == "Chef":
             self.handle_chef_command(command, client_socket)
@@ -17,9 +16,9 @@ class CommandHandler:
     def handle_admin_command(self, command, client_socket):
         if command == '1':
             all_inputs = client_socket.recv(1024).decode().strip()
-            item_name, item_price, item_category = all_inputs.split('|')
-            self.db_manager.add_food_item(item_name, float(item_price), int(item_category))
-            message = f"Food item '{item_name}' added successfully."
+
+            self.db_manager.add_food_item(all_inputs)
+            message = f"Food item added successfully."
             self.db_manager.add_notification(str(message), int(1))
             client_socket.send(f"'{message}'\n".encode())
         elif command == '2':
@@ -35,12 +34,11 @@ class CommandHandler:
             items = self.db_manager.view_food_items()
             if items:
                 for item in items:
-                    client_socket.send(f"Id: {item['Id']}, Name: {item['Name']}\n".encode())
+                    client_socket.send(f"Id: {item['Id']}, Name: {item['Name']}, Price: {item['Price']}, Category: {item['Category']}".encode())
                     time.sleep(0.1)
                 client_socket.send("FoodItems ended".encode())
             else:
                 client_socket.send("No food items found.\n".encode())
-
         elif command == '5':
             client_socket.send("Exiting...\n".encode())
         else:
@@ -77,10 +75,10 @@ class CommandHandler:
             if items:
                 client_socket.send("Food Items:\n".encode())
                 for item in items:
-                    client_socket.send(f"Id: {item['Id']}, Name: {item['Name']}\n".encode())
+                    client_socket.send(
+                        f"Id: {item['Id']}, Name: {item['Name']}, Price: {item['Price']}, Category: {item['Category']}".encode())
                     time.sleep(0.1)
                 client_socket.send("No Food Items Left".encode())
-
             else:
                 client_socket.send("No food items found.\n".encode())
         elif command == '4':  # View Recommendations
@@ -88,7 +86,7 @@ class CommandHandler:
             if recommendations:
                 client_socket.send("Food Item Recommendations:\n".encode())
                 for item in recommendations:
-                    client_socket.send(f"FoodItemId: {item['FoodItemId']}, FoodItemName: {item['FoodItemName']},FoodItemCategory: {item['FoodItemCategory']}, AvgRating: {item['AvgRating']:.2f}, AvgSentiment: {item['AvgSentiment']:.2f}\n".encode())
+                    client_socket.send(f"FoodItemId: {item['FoodItemId']}, FoodItemName: {item['FoodItemName']},FoodItemCategory: {item['FoodItemCategory']}, AvgRating: {item['AvgRating']:.2f}, AvgSentiment: {item['AvgSentiment']:.2f}".encode())
                     time.sleep(0.1)
                 client_socket.send("Food Item Recommendations Ended".encode())
                 message = f"Food items are rolled out, choose the items you wanted to eat."
@@ -99,7 +97,6 @@ class CommandHandler:
             client_socket.send("Exiting...\n".encode())
         else:
             client_socket.send("Invalid choice.\n".encode())
-
 
     def handle_employee_command(self, user, command, client_socket):
         if command == '1':  # View Notifications
@@ -114,18 +111,18 @@ class CommandHandler:
             if items:
                 client_socket.send("Food Items:\n".encode())
                 for item in items:
-                    client_socket.send(f"Id: {item['Id']}, Name: {item['Name']}\n".encode())
+                    client_socket.send(f"Id: {item['Id']}, Name: {item['Name']}".encode())
                     time.sleep(0.1)
                 client_socket.send("No Food Items Left".encode())
             else:
                 client_socket.send("No food items found.".encode())
         elif command == '4':
-            recommended_items = self.db_manager.fetchRecommendedItems()
+            recommended_items = self.db_manager.fetchRecommendedItemsBasedOnProfile(user.user_id)
             if recommended_items:
                 client_socket.send("Food Item Recommendations:\n".encode())
                 for item in recommended_items:
                     client_socket.send(
-                        f"FoodItemId: {item['FoodItemId']}, FoodItemName: {item['FoodItemName']},FoodItemCategory: {item['FoodItemCategory']}, AvgRating: {item['AvgRating']:.2f}, AvgSentiment: {item['AvgSentiment']:.2f}\n".encode())
+                        f"FoodItemId: {item['FoodItemId']}, FoodItemName: {item['FoodItemName']},FoodItemCategory: {item['FoodItemCategory']}, AvgRating: {item['AvgRating']:.2f}, AvgSentiment: {item['AvgSentiment']:.2f}".encode())
                     time.sleep(0.1)
                 client_socket.send("Food Item Recommendations Ended".encode())
 
@@ -178,12 +175,14 @@ class CommandHandler:
 
     def view_notifications(self, user, client_socket):
         last_seen_date = self.db_manager.get_last_seen_notification_date(user.user_id)
-        new_notifications = self.db_manager.get_new_notifications(last_seen_date, 2)
-
+        print(last_seen_date)
+        new_notifications = self.db_manager.get_new_notifications(last_seen_date)
+        print("Notifications: ", new_notifications)
         if new_notifications:
+            print("Notifications exists")
             client_socket.send("New Notifications:\n".encode())
             for notification in new_notifications:
-                client_socket.send(f"Date: {notification['Date']}, Message: {notification['Message']}\n".encode())
+                client_socket.send(f"Date: {notification['Date']}, Message: {notification['Message']}".encode())
             client_socket.send("Notifications Ended".encode())
         else:
             client_socket.send("No new notifications.".encode())

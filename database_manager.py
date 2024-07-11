@@ -1,5 +1,5 @@
 import mysql.connector
-
+from datetime import datetime
 # MySQL database connection configuration
 db_config = {
     'user': 'root',
@@ -40,9 +40,13 @@ class DatabaseManager:
         """
         return self.execute_query(query, (username, password))
 
-    def add_food_item(self, item_name, item_price, item_category):
-        query = "INSERT INTO FoodItems (Name, Price, Category) VALUES (%s, %s, %s)"
-        self.execute_query(query, (item_name, item_price, item_category))
+    def add_food_item(self, item):
+        item_name, item_price, item_category, diet_type, spice_level, preference, is_sweet = item.split('|')
+        query = """
+                    INSERT INTO FoodItems (Name, Price, Category, DietType, SpiceLevel, Preference, IsSweet)
+                    VALUES(%s, %s, %s, %s, %s, %s, %s) 
+                """
+        self.execute_query(query, (item_name, float(item_price), int(item_category), diet_type, spice_level, preference, int(is_sweet)))
 
     def delete_food_item(self, item_id):
         query = "DELETE FROM FoodItems WHERE Id = %s"
@@ -90,14 +94,6 @@ class DatabaseManager:
         query = "SELECT Rating, SentimentScore FROM Ratings WHERE FoodItemId = %s"
         return self.execute_query(query, (food_item_id,))
 
-    def truncate_recommended_items(self):
-        query = "TRUNCATE TABLE RecommendedItemsDaily"
-        self.execute_query(query)
-
-    def fetchRecommendedItems(self):
-        query = "SELECT FoodItemId, FoodItems.Name AS FoodItemName, FoodItemCategory, RecommendedItemsDaily.AvgRating, RecommendedItemsDaily.AvgSentiment FROM RecommendedItemsDaily JOIN FoodItems ON RecommendedItemsDaily.FoodItemId = FoodItems.Id;"
-        return self.execute_query(query)
-
     def update_food_items_with_avg_scores(self):
         query = """
         UPDATE FoodItems fi
@@ -144,6 +140,41 @@ class DatabaseManager:
         result = self.execute_query(query, (food_item_id,))
         return result[0]['Category'] if result else None
 
+    def truncate_recommended_items(self):
+        query = "TRUNCATE TABLE RecommendedItemsDaily"
+        self.execute_query(query)
+
+    def fetchRecommendedItems(self):
+        query = "SELECT FoodItemId, FoodItems.Name AS FoodItemName, FoodItemCategory, RecommendedItemsDaily.AvgRating, RecommendedItemsDaily.AvgSentiment FROM RecommendedItemsDaily JOIN FoodItems ON RecommendedItemsDaily.FoodItemId = FoodItems.Id;"
+        return self.execute_query(query)
+
+    def fetchUserProfile(self, user_id):
+        query = "SELECT diet_type, spice_level, preference, sweet_tooth FROM Userprofile WHERE user_id = %s;"
+        return self.execute_query(query, (user_id,))
+
+    def fetchRecommendedItemsBasedOnProfile(self, user_id):
+        user_profile = self.fetchUserProfile(user_id)[0]
+        diet_type = user_profile['diet_type']
+        spice_level = user_profile['spice_level']
+        preference = user_profile['preference']
+        sweet_tooth = user_profile['sweet_tooth']
+        print(user_profile)
+        print(diet_type, spice_level, preference, sweet_tooth)
+        #query1 = "SELECT FoodItemId, FoodItems.Name AS FoodItemName, FoodItemCategory, RecommendedItemsDaily.AvgRating, RecommendedItemsDaily.AvgSentiment FROM RecommendedItemsDaily JOIN FoodItems ON RecommendedItemsDaily.FoodItemId = FoodItems.Id;"
+        query = """
+                    SELECT r.FoodItemId, f.Name AS FoodItemName, r.FoodItemCategory, r.AvgRating, r.AvgSentiment
+                    FROM RecommendedItemsDaily r
+                    JOIN FoodItems f ON r.FoodItemId = f.Id
+                    ORDER BY 
+                        CASE WHEN f.DietType = %s THEN 1 ELSE 2 END, 
+                        CASE WHEN f.Preference = %s THEN 1 ELSE 2 END, 
+                        CASE WHEN f.SpiceLevel = %s THEN 1 ELSE 2 END, 
+                        CASE WHEN f.IsSweet = %s THEN 1 ELSE 2 END;
+                """
+        print(self.execute_query(query, (diet_type, spice_level, preference, sweet_tooth)))
+        return self.execute_query(query, (diet_type, spice_level, preference, sweet_tooth))
+
+
     def user_already_chosen_today(self, user_id, category):
         query = """
             SELECT 1 
@@ -185,13 +216,13 @@ class DatabaseManager:
         result = self.execute_query(query, (user_id,))
         return result[0]['LastNotificationSeenDate'] if result else None
 
-    def get_new_notifications(self, last_seen_date, role):
+    def get_new_notifications(self, last_seen_date):
         if last_seen_date:
-            query = "SELECT * FROM Notifications WHERE Date > %s AND Role = %s"
-            return self.execute_query(query, (last_seen_date, role))
+            query = "SELECT * FROM Notifications WHERE Date > %s"
+            return self.execute_query(query, (last_seen_date,))
         else:
-            query = "SELECT * FROM Notifications WHERE Role = %s"
-            return self.execute_query(query, (role,))
+            query = "SELECT * FROM Notifications"
+            return self.execute_query(query)
 
     def update_last_seen_notification_date(self, user_id):
         query = "UPDATE Users SET LastNotificationSeenDate = NOW() WHERE Id = %s"

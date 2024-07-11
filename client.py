@@ -1,5 +1,6 @@
 import socket
 
+
 class Client:
     def __init__(self, server_address, server_port):
         self.server_address = server_address
@@ -20,13 +21,10 @@ class Client:
         password = input("Enter password: ")
         user_credentials = f"{username}|{password}"
         self.client_socket.send(user_credentials.encode())
-        #print("Inside authenticate")
         response = self.receive_response()
-        #print("Inside authenticate")
         if "Login successful" in response:
             self.role = response.split("Your role is ")[1].strip().split('.')[0]
             self.user_id = response.split("Your user ID is ")[1].strip().split('.')[0]
-        #print(self.user_id, self.role)
 
     def send_command(self, command):
         self.client_socket.send(command.encode())
@@ -38,23 +36,9 @@ class Client:
         print(server_message)
         return server_message
 
-    '''
-    def receive_response(self):
-        data = b""
-        while True:
-            part = self.client_socket.recv(1024)
-            data += part
-            if len(part) < 1024:
-                break
-        response = data.decode()
-        print(response)
-        return response
-    '''
-
     def handle_input(self):
-        # print("Inside handle_input")
+
         self.receive_response()
-        #print("response recieved")
 
         if self.role == 'Admin':
             self.handle_admin_input()
@@ -70,7 +54,11 @@ class Client:
             item_name = input("Enter Food Item Name: ")
             item_price = input("Enter Food Item Price: ")
             item_category = input("Enter Food Item Category (as an integer): ")
-            all_inputs = f"{item_name}|{item_price}|{item_category}"
+            diet_type = input("Enter Food Item diet type ('Vegetarian', 'Non-Veg', 'Other'): ")
+            spice_level = input("Enter Food Item spice level ('Low', 'Medium', 'High'): ")
+            preference = input("Enter Food Item preference ('North Indian', 'South Indian', 'Other'): ")
+            is_sweet = input("Enter Food Item is sweet or not(0/1): ")
+            all_inputs = f"{item_name}|{item_price}|{item_category}|{diet_type}|{spice_level}|{preference}|{is_sweet}"
             self.send_command(all_inputs)
             self.receive_response()
         elif user_input == '2':  # Delete Food Item
@@ -87,7 +75,6 @@ class Client:
             print("Showing the menu items....")
             while self.receive_response() != "FoodItems ended":
                 continue
-
 
     def handle_chef_input(self):
         user_input = input("Enter Your Choice: ")
@@ -113,8 +100,6 @@ class Client:
         elif user_input == '4':  # View Recommendations
             while self.receive_response() not in ["Food Item Recommendations Ended", "No recommendations found."]:
                 continue
-
-
 
     def handle_employee_input(self):
         user_input = input("Enter Your Choice: ")
@@ -179,6 +164,7 @@ class Client:
 
         self.client_socket.close()
         print("Disconnected from server")
+
 
 if __name__ == "__main__":
     client = Client("127.0.0.1", 7778)
