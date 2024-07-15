@@ -2,6 +2,7 @@ import socket
 import threading
 from user import User
 from Controllers.user_controller import UserController
+from DBManagement.user_db import UserDB
 from DBManagement.database_manager import DatabaseManager
 
 
@@ -10,15 +11,15 @@ class Server:
         self.address = address
         self.port = port
         self.db_manager = db_manager
-        
+        self.user_db = UserDB(db_manager)
 
     def handle_client(self, client_socket):
         try:
             print("Handling new client")
             user_credentials = client_socket.recv(1024).decode().strip()
             username, password = user_credentials.split('|')
-            user_data = self.db_manager.get_user_role(username, password)
-
+            user_data = self.user_db.get_user_role(username, password)
+            print("Details", user_data)
             if user_data:
                 user = User(user_data[0]['Id'], username, user_data[0]['RoleName'])
                 client_socket.send(f"Login successful! Your role is {user.role}. Your user ID is {user.user_id}.\n".encode())
@@ -42,6 +43,7 @@ class Server:
             print(f"Accepted connection from {addr}")
             client_handler = threading.Thread(target=self.handle_client, args=(client_socket,))
             client_handler.start()
+
 
 if __name__ == "__main__":
     db_manager = DatabaseManager()

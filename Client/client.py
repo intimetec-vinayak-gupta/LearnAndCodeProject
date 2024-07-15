@@ -6,6 +6,7 @@ class Client:
         self.server_address = server_address
         self.server_port = server_port
         self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.user = User(self.client_socket)  # Pass the socket to User instance
 
     def connect(self):
         try:
@@ -13,34 +14,24 @@ class Client:
             print(f"Connected to server at {self.server_address}:{self.server_port}")
         except socket.error as e:
             print(f"Connection error: {e}")
-
-
-    def send_command(self, command):
-        self.client_socket.send(command.encode())
-
-    def receive_response(self):
-        server_message = self.client_socket.recv(8016).decode()
-        if not server_message:
-            return None
-        print(server_message)
-        return server_message
+            self.client_socket.close()
+            return False
+        return True
 
     def start(self):
-        self.connect()
-        User.authenticate()
-
-        #print("INSIDE START\n")
-        User.handle_input()
-        #while True:
-         #   server_message = self.receive_response()
-          #  if server_message is None:
-           #     break
-            #self.handle_input(server_message)
-
+        if not self.connect():
+            return
+        
+        if not self.user.authenticate():
+            print("Authentication failed")
+            self.client_socket.close()
+            return
+        
+        self.user.handle_input()
+        
         self.client_socket.close()
         print("Disconnected from server")
 
-
 if __name__ == "__main__":
-    client = Client("127.0.0.1", 7778)
+    client = Client("127.0.0.1", 7779)
     client.start()
