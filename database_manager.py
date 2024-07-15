@@ -8,8 +8,9 @@ db_config = {
     'database': 'LearnAndCode_Project'
 }
 
+
 class DatabaseManager:
-    def __init__(self, config=db_config):
+    def __init__(self, config = db_config):
         self.config = config
 
     def execute_query(self, query, params=None):
@@ -61,11 +62,6 @@ class DatabaseManager:
         return self.execute_query(query)
 
     def add_rating_and_feedback(self, user_id, food_item_id, rating, feedback):
-        query = "INSERT INTO Ratings (UserId, FoodItemId, Rating, Feedback) VALUES (%s, %s, %s, %s);"
-        # Execute the query with the parameters
-        self.execute_query(query, (user_id, food_item_id, rating, feedback))
-
-    def add_rating_and_feedback(self, user_id, food_item_id, rating, feedback):
         sentiment_score = self.calculate_sentiment(feedback)
         query = """
             INSERT INTO Ratings (UserId, FoodItemId, Rating, Feedback, SentimentScore) 
@@ -74,16 +70,51 @@ class DatabaseManager:
         self.execute_query(query, (user_id, food_item_id, rating, feedback, sentiment_score))
 
     def calculate_sentiment(self, feedback):
-        positive_words = ["good", "great", "excellent", "fantastic", "amazing"]
-        negative_words = ["bad", "terrible", "awful", "poor", "horrible"]
+        positive_words = [
+            "good", "great", "excellent", "fantastic", "amazing", "wonderful", "superb", "positive", "pleasant", "nice",
+            "awesome", "outstanding", "brilliant", "exceptional", "fabulous", "marvelous", "satisfying", "delightful",
+            "impressive", "commendable", "splendid", "terrific", "lovely", "enjoyable", "cool"]
+
+        negative_words = [
+            "bad", "terrible", "awful", "poor", "horrible", "dreadful", "unpleasant", "negative", "disappointing",
+            "subpar", "lousy", "unacceptable", "inferior", "crummy", "atrocious", "appalling", "pathetic", "abysmal",
+            "unfavorable", "nasty", "deficient", "deplorable", "horrid", "mediocre", "unimpressive"]
+
+        negations = ["not", "never", "no", "none", "cannot", "can't", "won't", "don't", "doesn't", "didn't", "isn't",
+                     "aren't", "wasn't", "weren't"]
 
         score = 0
         words = feedback.lower().split()
-        for word in words:
+        i = 0
+        while i < len(words):
+            word = words[i]
             if word in positive_words:
-                score += 1
+                if i > 0 and words[i - 1] in negations:
+                    score -= 1
+                else:
+                    score += 1
             elif word in negative_words:
-                score -= 1
+                if i > 0 and words[i - 1] in negations:
+                    score += 1
+                else:
+                    score -= 1
+            i += 1
+
+            # Consider pairs of words (like "not good")
+            if i < len(words) - 1:
+                bigram = f"{words[i]} {words[i + 1]}"
+                if bigram in positive_words:
+                    if i > 1 and words[i - 1] in negations:
+                        score -= 1
+                    else:
+                        score += 1
+                    i += 1
+                elif bigram in negative_words:
+                    if i > 1 and words[i - 1] in negations:
+                        score += 1
+                    else:
+                        score -= 1
+                    i += 1
 
         # Normalize sentiment score to range 1-10
         max_score = len(words)
@@ -111,7 +142,7 @@ class DatabaseManager:
         """
         self.execute_query(query)
 
-    def getRecommendedItems(self):
+    def get_recommended_items(self):
         self.truncate_recommended_items()
         self.update_food_items_with_avg_scores()
 
@@ -160,7 +191,6 @@ class DatabaseManager:
         sweet_tooth = user_profile['sweet_tooth']
         print(user_profile)
         print(diet_type, spice_level, preference, sweet_tooth)
-        #query1 = "SELECT FoodItemId, FoodItems.Name AS FoodItemName, FoodItemCategory, RecommendedItemsDaily.AvgRating, RecommendedItemsDaily.AvgSentiment FROM RecommendedItemsDaily JOIN FoodItems ON RecommendedItemsDaily.FoodItemId = FoodItems.Id;"
         query = """
                     SELECT r.FoodItemId, f.Name AS FoodItemName, r.FoodItemCategory, r.AvgRating, r.AvgSentiment
                     FROM RecommendedItemsDaily r
@@ -171,9 +201,7 @@ class DatabaseManager:
                         CASE WHEN f.SpiceLevel = %s THEN 1 ELSE 2 END, 
                         CASE WHEN f.IsSweet = %s THEN 1 ELSE 2 END;
                 """
-        print(self.execute_query(query, (diet_type, spice_level, preference, sweet_tooth)))
         return self.execute_query(query, (diet_type, spice_level, preference, sweet_tooth))
-
 
     def user_already_chosen_today(self, user_id, category):
         query = """
@@ -241,10 +269,6 @@ class DatabaseManager:
 
     def discard_item(self, food_item_id):
         query = "INSERT INTO DiscardedItems (FoodItemId) VALUES (%s)"
-        self.execute_query(query, (food_item_id,))
-
-    def delete_food_item(self, food_item_id):
-        query = "DELETE FROM FoodItems WHERE Id = %s"
         self.execute_query(query, (food_item_id,))
 
     def view_discarded_items(self):

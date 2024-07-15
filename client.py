@@ -8,6 +8,7 @@ class Client:
         self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.role = None
         self.user_id = None
+        self.iterator = True
 
     def connect(self):
         try:
@@ -17,35 +18,58 @@ class Client:
             print(f"Connection error: {e}")
 
     def authenticate(self):
-        username = input("Enter username: ")
-        password = input("Enter password: ")
-        user_credentials = f"{username}|{password}"
-        self.client_socket.send(user_credentials.encode())
-        response = self.receive_response()
-        if "Login successful" in response:
-            self.role = response.split("Your role is ")[1].strip().split('.')[0]
-            self.user_id = response.split("Your user ID is ")[1].strip().split('.')[0]
+        try:
+            username = input("Enter username: ")
+            password = input("Enter password: ")
+            user_credentials = f"{username}|{password}"
+            self.client_socket.send(user_credentials.encode())
+            response = self.receive_response()
+            if response and "Login successful" in response:
+                self.role = response.split("Your role is ")[1].strip().split('.')[0]
+                self.user_id = response.split("Your user ID is ")[1].strip().split('.')[0]
+            else:
+                print("Authentication failed.")
+                self.client_socket.close()
+                exit(1)
+        except Exception as e:
+            print(f"Error during authentication: {e}")
+            self.client_socket.close()
+            exit(1)
 
     def send_command(self, command):
-        self.client_socket.send(command.encode())
+        try:
+            self.client_socket.send(command.encode())
+        except socket.error as e:
+            print(f"Error sending command: {e}")
+            self.client_socket.close()
+            exit(1)
 
     def receive_response(self):
-        server_message = self.client_socket.recv(8016).decode()
-        if not server_message:
-            return None
-        print(server_message)
-        return server_message
+        try:
+            server_message = self.client_socket.recv(8016).decode()
+            if not server_message:
+                return None
+            print(server_message)
+            return server_message
+        except socket.error as e:
+            print(f"Error receiving response: {e}")
+            self.client_socket.close()
+            exit(1)
 
     def handle_input(self):
+        while self.iterator:
+            self.receive_response()
 
-        self.receive_response()
-
-        if self.role == 'Admin':
-            self.handle_admin_input()
-        elif self.role == 'Chef':
-            self.handle_chef_input()
-        elif self.role == 'Employee':
-            self.handle_employee_input()
+            if self.role == 'Admin':
+                self.handle_admin_input()
+            elif self.role == 'Chef':
+                self.handle_chef_input()
+            elif self.role == 'Employee':
+                self.handle_employee_input()
+            else:
+                print("Unknown role.")
+                self.client_socket.close()
+                exit(1)
 
     def handle_admin_input(self):
         user_input = input("Enter Your Choice: ")
@@ -73,17 +97,20 @@ class Client:
             self.receive_response()
         elif user_input == '4':
             print("Showing the menu items....")
-            while self.receive_response() != "FoodItems ended":
+            while self.receive_response() not in ["FoodItems ended", "No food items found"]:
                 continue
+        elif user_input == '5':
+            self.iterator = False
 
     def handle_chef_input(self):
         user_input = input("Enter Your Choice: ")
         self.send_command(user_input)
         if user_input == '1':  # Check Voting Result
             print("Check Voting Result For the Food Items...")
-
+            while self.receive_response() not in ["No one has voted till now", "Voting List ended"]:
+                continue
         elif user_input == '2':  # View Feedback
-            while self.receive_response() not in ["Discardable Ended", "No discardable items found."]:
+            while self.receive_response() not in ["Discardable Items Ended", "No discardable items found"]:
                 continue
             self.receive_response()
             action = input("Enter your choice: ")
@@ -94,18 +121,19 @@ class Client:
             self.receive_response()
 
         elif user_input == '3':  # View Menu
-            while self.receive_response() not in ["No Food Items Left", "No food items found."]:
+            while self.receive_response() not in ["FoodItems ended", "No food items found"]:
                 continue
-
         elif user_input == '4':  # View Recommendations
             while self.receive_response() not in ["Food Item Recommendations Ended", "No recommendations found."]:
                 continue
+        elif user_input == '5':
+            self.iterator = False
 
     def handle_employee_input(self):
         user_input = input("Enter Your Choice: ")
         self.send_command(user_input)
         if user_input == '1':  # View Notifications
-            while self.receive_response() not in ["Notifications Ended", "No new notifications."]:
+            while self.receive_response() not in ["Notifications Ended", "No new notifications"]:
                 continue
 
         elif user_input == '2':  # Give Feedback
@@ -117,11 +145,11 @@ class Client:
             self.receive_response()
 
         elif user_input == '3':  # View Menu
-            while self.receive_response() not in ["No Food Items Left", "No food items found."]:
+            while self.receive_response() not in ["FoodItems ended", "No food items found"]:
                 continue
 
         elif user_input == '4':
-            while self.receive_response() not in ["Food Item Recommendations Ended", "No recommended items found."]:
+            while self.receive_response() not in ["Food Item Recommendations Ended", "No recommended items found"]:
                 continue
             self.receive_response()
             food_item_id = input()
@@ -129,7 +157,7 @@ class Client:
             self.receive_response()
 
         elif user_input == '5':
-            while self.receive_response() not in ["Discarded Items Ended", "No Discard Items Found."]:
+            while self.receive_response() not in ["Discardable Items Ended", "No discardable items found"]:
                 continue
 
             food_item_id = input("Enter the food item id to discard: ")
@@ -147,21 +175,13 @@ class Client:
             mom_recipe = input()
             self.send_command(mom_recipe)
 
-            #all_inputs = f"{disliked_aspects}|{desired_taste}|{mom_recipe}"
-            #self.send_command(all_inputs)
+        elif user_input == '6':
+            self.iterator = False
 
     def start(self):
         self.connect()
         self.authenticate()
-
-        #print("INSIDE START\n")
         self.handle_input()
-        #while True:
-         #   server_message = self.receive_response()
-          #  if server_message is None:
-           #     break
-            #self.handle_input(server_message)
-
         self.client_socket.close()
         print("Disconnected from server")
 
